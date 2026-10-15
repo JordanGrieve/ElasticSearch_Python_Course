@@ -1,5 +1,10 @@
-from config import INDEX_NAME, INDEX_NAME_N_GRAM
+from config import INDEX_NAME, INDEX_NAME_N_GRAM, INDEX_NAME_EMBEDDING
 from utils import get_es_client
+
+import torch
+import json
+
+from sentence_transformers import SentenceTransformer
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +17,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = SentenceTransformer('all-MiniLM-L6-v2').to(device)
 
 @app.get("/api/v1/regular_search")
 async def search(search_query: str, skip: int = 0, limit: int = 10, year: str | None = None) -> dict:
@@ -44,6 +52,52 @@ async def search(search_query: str, skip: int = 0, limit: int = 10, year: str | 
     max_pages = (total_hits + limit - 1) // limit
     return {"hits": hits, "max_pages": max_pages}
 
+@app.get("/api/v1/semantic_search")
+async def semantic_search(search_query: str, skip: int = 0, limit: int = 10, year: str | None = None) -> dict:
+    es = get_es_client(max_retries=1, sleep_time=0)
+    embedding = model.encode(search_query).tolist()
+    
+    query = {
+        "bool": {
+            "must": [
+                {
+                    "knn": {
+                        "field": "embedding",
+                        "query_vector": embedding,
+                        "k": 1e4
+                    }
+                }
+            ]
+        }
+    }
+    
+    if year:
+        query["bool"]["must"].append({
+            "range": {
+                "date": {
+                    "gte": f"{year}-01-01",
+                    "lte": f"{year}-12-31"
+                }
+            }
+        })
+
+    response = es.search(
+        index=INDEX_NAME_EMBEDDING,
+        body={
+            "query": query,
+            "from": skip,
+            "size": limit
+        },
+        filter_path=['hits.hits._source,hits.hits._score,hits.total'],
+    )
+    if year:
+        hits = [hit for hit in response["hits"].get("hits", []) if hit["_source"].get("date", "").startswith(year)]
+    else:
+        hits = response["hits"].get("hits", [])
+    total_hits = response["hits"]["total"]["value"]
+    max_pages = (total_hits + limit - 1) // limit
+    return {"hits": hits, "max_pages": max_pages}
+    
 @app.get("/api/v1/get_docs_per_year_count/")
 async def get_docs_per_year_count(search_query: str) -> dict:
     es = get_es_client(max_retries=1, sleep_time=0)
