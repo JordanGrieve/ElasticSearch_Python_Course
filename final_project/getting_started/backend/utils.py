@@ -5,10 +5,13 @@ from pprint import pprint
 from elasticsearch import Elasticsearch
 
 from dotenv import load_dotenv
+from fastapi import FastAPI
+
+app = FastAPI()
 
 load_dotenv()
 
-def get_es_client(max_retries:int = 5, sleep_time:int = 5) -> Elasticsearch:
+def get_es_client(max_retries:int = 1, sleep_time:int = 0) -> Elasticsearch:
     i = 0
     while i < max_retries:
         try:
@@ -22,3 +25,4 @@ def get_es_client(max_retries:int = 5, sleep_time:int = 5) -> Elasticsearch:
             i += 1
             time.sleep(sleep_time)
     raise ConnectionError(f'Failed to connect to Elasticsearch after {max_retries} attempts')
+
