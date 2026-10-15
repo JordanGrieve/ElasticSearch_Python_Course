@@ -1,4 +1,4 @@
-from config import INDEX_NAME
+from config import INDEX_NAME, INDEX_NAME_N_GRAM
 from utils import get_es_client
 
 from fastapi import FastAPI
@@ -17,7 +17,7 @@ app.add_middleware(
 async def search(search_query: str, skip: int = 0, limit: int = 10, year: str | None = None) -> dict:
     es = get_es_client(max_retries=1, sleep_time=5)
     response = es.search(
-        index=INDEX_NAME,
+        index=INDEX_NAME_N_GRAM,
         body={
             "query": {
                 "bool": {
@@ -62,7 +62,7 @@ async def get_docs_per_year_count(search_query: str) -> dict:
         }
         
         response = es.search(
-            index=INDEX_NAME,
+            index=INDEX_NAME_N_GRAM,
             body={
                 "query": query,
                 "aggs": {
