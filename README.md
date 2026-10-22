@@ -2,6 +2,28 @@
 
 My working copy of [ImadSaddik's Elasticsearch Python Tutorial](https://github.com/ImadSaddik/ElasticSearch_Python_Course), with the final project (an APOD image search app with a FastAPI backend and Vue frontend) set up to run locally on Windows.
 
+![Searching "Andromeda galaxy" in the APOD search app](images/apod_andromeda_galaxy.gif)
+
+## Status and known issue: APOD images not loading
+
+The search app runs end to end: Elasticsearch in Docker, the FastAPI backend on `localhost:8000`, and the Vue frontend on `localhost:8080`. The GIF above shows a search for "Andromeda galaxy".
+
+**Images in the result gallery don't load.** NASA moved Astronomy Picture of the Day from `apod.nasa.gov` to `science.nasa.gov`:
+
+- All 3,333 records in `data/apod.json` have `image_url` values like `https://apod.nasa.gov/apod/image/2409/SSSGreatestHits1024.png`.
+- Each of those URLs now returns a `301` redirect to `https://science.nasa.gov/apod/`. That is an HTML landing page, not an image, so the `<img>` in `GallerySection.vue` shows as broken.
+- The images now live under `https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/<year>/<month>/<file>`, but **the filenames changed too**. For example, `SSSGreatestHits1024.png` became `SSSGreatestHits.png`. Changing the domain alone isn't enough.
+
+Possible fixes (neither is applied yet):
+
+1. **Quick:** put the Wayback Machine in front of each URL (`https://web.archive.org/web/2024id_/<old url>`). This still needs testing across a sample of images.
+2. **Robust:** scrape each image's new `science.nasa.gov` article page for its real image URL, rewrite `apod.json`, and re-index.
+
+### How this was worked on (Claude Code)
+
+- **Claude Code in VS Code:** traced where `image_url` comes from, used `curl` to confirm the `301` redirects, and found the new asset path on NASA's site.
+- **Claude in Chrome (browser extension):** a second Claude session with the browser connected opened the app on localhost, ran the search, and recorded the GIF above with its GIF recording tool.
+
 ## Repository contents
 
 - `notebooks/`: Jupyter notebooks with hands-on Elasticsearch examples.
